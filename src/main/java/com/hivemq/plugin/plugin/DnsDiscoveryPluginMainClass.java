@@ -16,32 +16,30 @@
 
 package com.hivemq.plugin.plugin;
 
+import com.hivemq.plugin.api.PluginMain;
+import com.hivemq.plugin.api.annotations.NotNull;
+import com.hivemq.plugin.api.parameter.PluginStartInput;
+import com.hivemq.plugin.api.parameter.PluginStartOutput;
+import com.hivemq.plugin.api.parameter.PluginStopInput;
+import com.hivemq.plugin.api.parameter.PluginStopOutput;
+import com.hivemq.plugin.api.services.Services;
 import com.hivemq.plugin.callbacks.DnsClusterDiscovery;
-import com.hivemq.spi.PluginEntryPoint;
-import com.hivemq.spi.callback.registry.CallbackRegistry;
+import com.hivemq.plugin.configuration.ConfigurationReader;
+import com.hivemq.plugin.configuration.DnsDiscoveryConfigExtended;
 
-import javax.annotation.PostConstruct;
-import javax.inject.Inject;
-
-public class DnsDiscoveryPluginMainClass extends PluginEntryPoint {
-
-    private final DnsClusterDiscovery dnsClusterDiscovery;
+public class DnsDiscoveryPluginMainClass implements PluginMain {
 
 
-    @Inject
-    public DnsDiscoveryPluginMainClass(final DnsClusterDiscovery dnsClusterDiscovery) {
-        this.dnsClusterDiscovery = dnsClusterDiscovery;
+
+    @Override
+    public void pluginStart(@NotNull  PluginStartInput pluginStartInput, @NotNull  PluginStartOutput pluginStartOutput) {
+        ConfigurationReader configurationReader = new ConfigurationReader(pluginStartInput.getPluginInformation());
+        Services.clusterService().addDiscoveryCallback(new DnsClusterDiscovery(new DnsDiscoveryConfigExtended(configurationReader), Services.pluginExecutorService()));
     }
 
-    /**
-     * This method is executed after the instantiation of the whole class. It is used to initialize
-     * the implemented callbacks and make them known to the HiveMQ core.
-     */
-    @SuppressWarnings("unused")
-    @PostConstruct
-    public void postConstruct() {
-        CallbackRegistry callbackRegistry = getCallbackRegistry();
-        callbackRegistry.addCallback(dnsClusterDiscovery);
-    }
+    @Override
+    public void pluginStop(@NotNull PluginStopInput pluginStopInput, @NotNull  PluginStopOutput pluginStopOutput) {
 
+    }
 }
+
