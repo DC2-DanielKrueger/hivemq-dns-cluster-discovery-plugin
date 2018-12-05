@@ -1,69 +1,79 @@
+/*
+ * Copyright 2018 dc-square GmbH
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.hivemq.plugin.configuration;
 
-
+import com.hivemq.plugin.api.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Wraps the AeonBitsOwner Config and makes it possible to use Environmental Variables
- * Adds some sanity checks
+ * Configuration class that encapsulate dnsDiscoveryConfig to enable usage of environment Variables
+ *
+ * @author Anja Helmbrecht-Schaar
  */
 public class DnsDiscoveryConfigExtended {
 
-    private final DnsDiscoveryConfig aeonbitsOwnerConfig;
+    private static final Logger log = LoggerFactory.getLogger(DnsDiscoveryConfigExtended.class);
 
     private static final String DISCOVERY_ADDRESS_ENV = "HIVEMQ_DNS_DISCOVERY_ADDRESS";
     private static final String DISCOVERY_TIMEOUT_ENV = "HIVEMQ_DNS_DISCOVERY_TIMEOUT";
-    private static final int DEFAULT_DISCOVERY_TIMEOUT = 30;
 
-    private static final Logger log = LoggerFactory.getLogger(DnsDiscoveryConfigExtended.class);
+    private final DnsDiscoveryConfig dnsDiscoveryConfig;
 
-    //todo disable aeonbitsowner if no file is present or we dont want to use it
-
-    public DnsDiscoveryConfigExtended(ConfigurationReader reader){
-        aeonbitsOwnerConfig = reader.get();
+    public DnsDiscoveryConfigExtended(@NotNull final ConfigurationReader reader) {
+        dnsDiscoveryConfig = reader.get();
     }
 
+    /**
+     * method to get discovery address
+     *      either from environment variable
+     *      or from properties configuration
+     * @return String - the discovery address
+     */
     public String discoveryAddress() {
-        String discoveryAddress =null;
-        try {
-            discoveryAddress = aeonbitsOwnerConfig.discoveryAddress();
-        }catch(Exception e){
-            //ignore
-        }
-        // if its not set lookup in System Environment
-        if(discoveryAddress==null||discoveryAddress.isEmpty()){
-            final String discoveryAddressEnv = System.getenv(DISCOVERY_ADDRESS_ENV);
-            if (discoveryAddressEnv == null || discoveryAddressEnv.isEmpty()) {
+        final String discoveryAddress = System.getenv(DISCOVERY_ADDRESS_ENV);
+
+        if (discoveryAddress == null || discoveryAddress.isEmpty()) {
+            try {
+                return dnsDiscoveryConfig.discoveryAddress();
+            } catch (Exception e) {
                 log.error("No discovery address was set in the configuration file or environment variable");
                 return null;
-            } else {
-                return discoveryAddressEnv;
             }
         }
         return discoveryAddress;
     }
 
+    /**
+     * method to get discovery timeout
+     *      either from environment variable
+     *      or from properties configuration
+     *      or default setting
+     *
+     * @return int - the resolution timeout
+     */
     public int resolutionTimeout() {
-        String resolveTimeout =null;
-        try {
-            resolveTimeout = aeonbitsOwnerConfig.resolutionTimeout();
-        }catch(Exception e){
-            //ignore
-        }
-
-        if (resolveTimeout == null || resolveTimeout.isEmpty()) {
-            resolveTimeout = System.getenv(DISCOVERY_TIMEOUT_ENV);
-            if (resolveTimeout == null || resolveTimeout.isEmpty()) {
-                log.warn("No DNS resolution timeout configured in configuration file or environment variable, using default: {}", DEFAULT_DISCOVERY_TIMEOUT);
-                return DEFAULT_DISCOVERY_TIMEOUT;
+        final String resolveTimeout = System.getenv(DISCOVERY_TIMEOUT_ENV);
+        if (resolveTimeout != null && !resolveTimeout.isEmpty()) {
+            try {
+                return Integer.parseInt(resolveTimeout);
+            } catch (NumberFormatException e) {
+                log.error("Resolution timeout from env {} couldn't be parsed to int. Fallback to config value.", DISCOVERY_TIMEOUT_ENV);
             }
         }
-        try {
-            return Integer.parseInt(resolveTimeout);
-        } catch (NumberFormatException e) {
-            log.error("Invalid format {} for DNS discovery property resolutionTimeout, using default: {}", resolveTimeout, DEFAULT_DISCOVERY_TIMEOUT);
-            return DEFAULT_DISCOVERY_TIMEOUT;
-        }
+        return dnsDiscoveryConfig.resolutionTimeout();
     }
 }
